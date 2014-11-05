@@ -114,7 +114,12 @@
  * [including the GNU Public Licence.]
  */
 
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/ioctl.h>
+#include <termios.h>
+#endif
 
 #include <openssl/opensslconf.h>
 
@@ -122,7 +127,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
-#include <termios.h>
 #include <unistd.h>
 
 #include "ui_locl.h"
@@ -131,10 +135,13 @@
 #define NX509_SIG 32
 #endif
 
+#ifndef _WIN32
 /* Define globals.  They are protected by a lock */
 static struct sigaction savsig[NX509_SIG];
 
 static struct termios tty_orig, tty_new;
+#endif
+
 static FILE *tty_in, *tty_out;
 static int is_a_tty;
 
@@ -298,6 +305,11 @@ open_console(UI *ui)
 	CRYPTO_w_lock(CRYPTO_LOCK_UI);
 	is_a_tty = 1;
 
+#ifdef _WIN32
+	tty_in = stdin;
+	tty_out = stderr;
+#else
+
 #define DEV_TTY "/dev/tty"
 	if ((tty_in = fopen(DEV_TTY, "r")) == NULL)
 		tty_in = stdin;
@@ -318,28 +330,46 @@ open_console(UI *ui)
 		else
 			return 0;
 	}
-
+#endif
 	return 1;
 }
 
 static int
 noecho_console(UI *ui)
 {
+#ifdef _WIN32
+	DWORD mode = 0;
+	HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
+	if (handle != INVALID_HANDLE_VALUE && handle != handle) {
+		return GetConsoleMode(handle, &mode) && SetConsoleMode(handle, mode & (~ENABLE_ECHO_INPUT));
+	}
+	return 0;
+#else
 	memcpy(&(tty_new), &(tty_orig), sizeof(tty_orig));
 	tty_new.c_lflag &= ~ECHO;
 	if (is_a_tty && (tcsetattr(fileno(tty_in), TCSANOW, &tty_new) == -1))
 		return 0;
 	return 1;
+#endif
 }
 
 static int
 echo_console(UI *ui)
 {
+#ifdef _WIN32
+	DWORD mode = 0;
+	HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
+	if (handle != INVALID_HANDLE_VALUE && handle != handle) {
+		return GetConsoleMode(handle, &mode) && SetConsoleMode(handle, mode | ENABLE_ECHO_INPUT);
+	}
+	return 0;
+#else
 	memcpy(&(tty_new), &(tty_orig), sizeof(tty_orig));
 	tty_new.c_lflag |= ECHO;
 	if (is_a_tty && (tcsetattr(fileno(tty_in), TCSANOW, &tty_new) == -1))
 		return 0;
 	return 1;
+#endif
 }
 
 static int
@@ -359,6 +389,7 @@ close_console(UI *ui)
 static void
 pushsig(void)
 {
+#ifndef _WIN32
 	int i;
 	struct sigaction sa;
 
@@ -376,11 +407,13 @@ pushsig(void)
 	}
 
 	signal(SIGWINCH, SIG_DFL);
+#endif
 }
 
 static void
 popsig(void)
 {
+#ifndef _WIN32
 	int i;
 	for (i = 1; i < NX509_SIG; i++) {
 		if (i == SIGUSR1)
@@ -389,6 +422,7 @@ popsig(void)
 			continue;
 		sigaction(i, &savsig[i], NULL);
 	}
+#endif
 }
 
 static void
