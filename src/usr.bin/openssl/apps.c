@@ -126,7 +126,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/times.h>
+#endif
 
 #include <ctype.h>
 #include <errno.h>
@@ -2208,6 +2213,22 @@ next_protos_parse(unsigned short *outlen, const char *in)
 double
 app_tminterval(int stop, int usertime)
 {
+#ifdef _WIN32
+	static unsigned __int64 tmstart;
+	union {
+		unsigned __int64 u64;
+		FILETIME ft;
+	}  ct, et, kt, ut;
+
+	GetProcessTimes(GetCurrentProcess(), &ct.ft, &et.ft, &kt.ft, &ut.ft);
+
+	if (stop == TM_START) {
+		tmstart = ut.u64 + kt.u64;
+	} else {
+		return (ut.u64 + kt.u64 - tmstart) / (double) 10000000;
+	}
+	return 0;
+#else
 	double ret = 0;
 	struct tms rus;
 	clock_t now = times(&rus);
@@ -2224,6 +2245,7 @@ app_tminterval(int stop, int usertime)
 	}
 
 	return (ret);
+#endif
 }
 
 int
