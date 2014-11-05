@@ -64,14 +64,19 @@
   -----------------------------------------*/
 
 #include <sys/types.h>
+
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
+#include <poll.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
 #include <unistd.h>
-#include <poll.h>
 
 #include "apps.h"
 
@@ -531,7 +536,6 @@ end:
 static SSL *
 doConnection(SSL * scon)
 {
-	struct pollfd pfd[1];
 	SSL *serverCon;
 	BIO *conn;
 	int i;
@@ -560,12 +564,22 @@ doConnection(SSL * scon)
 	for (;;) {
 		i = SSL_connect(serverCon);
 		if (BIO_sock_should_retry(i)) {
+#ifdef _WIN32
+			fd_set readfds;
+			BIO_printf(bio_err, "DELAY\n");
+			i = SSL_get_fd(serverCon);
+			FD_ZERO(&readfds);
+			FD_SET(i, &readfds);
+			select(i + 1, &readfds, NULL, NULL, NULL);
+#else
+			struct pollfd pfd[1];
 			BIO_printf(bio_err, "DELAY\n");
 
 			i = SSL_get_fd(serverCon);
 			pfd[0].fd = i;
 			pfd[0].events = POLLIN;
 			poll(pfd, 1, -1);
+#endif
 			continue;
 		}
 		break;
