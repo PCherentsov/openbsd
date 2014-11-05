@@ -147,9 +147,14 @@
 #endif
 
 #include <sys/types.h>
+
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#endif
 
 #include <assert.h>
 #include <ctype.h>
