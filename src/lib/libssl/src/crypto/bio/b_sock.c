@@ -56,18 +56,22 @@
  * [including the GNU Public Licence.]
  */
 
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <string.h>
-
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <netdb.h>
+#endif
+
+#include <string.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -210,7 +214,11 @@ BIO_socket_ioctl(int fd, long type, void *arg)
 {
 	int ret;
 
+#ifdef _WIN32
+	ret = ioctlsocket(fd, type, arg);
+#else
 	ret = ioctl(fd, type, arg);
+#endif
 	if (ret < 0)
 		SYSerr(SYS_F_IOCTLSOCKET, errno);
 	return (ret);
@@ -460,10 +468,15 @@ BIO_set_tcp_ndelay(int s, int on)
 int
 BIO_socket_nbio(int s, int mode)
 {
+#ifdef _WIN32
+	u_long value = mode;
+	return ioctlsocket(s, FIONBIO, &value) != SOCKET_ERROR;
+#else
 	int flags = fcntl(s, F_GETFD);
 	if (mode && !(flags & O_NONBLOCK))
 		return (fcntl(s, F_SETFL, flags | O_NONBLOCK) != -1);
 	else if (!mode && (flags & O_NONBLOCK))
 		return (fcntl(s, F_SETFL, flags & ~O_NONBLOCK) != -1);
 	return (1);
+#endif
 }
