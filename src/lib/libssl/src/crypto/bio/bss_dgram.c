@@ -57,13 +57,17 @@
  *
  */
 
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#endif
+
 #include <sys/time.h>
 
-#include <netinet/in.h>
-
 #include <errno.h>
-#include <netdb.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
