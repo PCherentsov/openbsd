@@ -57,7 +57,11 @@
  */
 #ifndef OPENSSL_NO_OCSP
 
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/select.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
