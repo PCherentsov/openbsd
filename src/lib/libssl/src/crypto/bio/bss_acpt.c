@@ -56,7 +56,11 @@
  * [including the GNU Public Licence.]
  */
 
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
+#endif
 
 #include <errno.h>
 #include <stdio.h>
